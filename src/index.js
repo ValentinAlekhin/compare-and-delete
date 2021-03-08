@@ -9,54 +9,67 @@ if (Cluster.isMaster) {
   const createWorkingList = require('./compare/createWorkingList/createWorkingList')
   const compareHandler = require('./compare/handler/handler')
 
-  const compareAndDelete = async (directory, options) => {
-    const images = (await fs.readdir(directory)).map(img =>
-      path.join(directory, img)
-    )
+  const compareAndDelete = (directory, options) =>
+    new Promise(async (res, rej) => {
+      const images = (await fs.readdir(directory)).map(img =>
+        path.join(directory, img)
+      )
 
-    if (images.length === 1) return
+      if (images.length === 1) return
 
-    let data = { workingList: createWorkingList(images), deleteList: [] }
+      let data = { workingList: createWorkingList(images), deleteList: [] }
 
-    const sendMsgToWorker = worker => worker.send(data.workingList[0])
+      let worksLength = data.workingList.length
 
-    const createWorker = () => {
-      if (!data.workingList.length) return
+      const forksNum = numCPUs > worksLength ? numCPUs : worksLength
 
-      worker = Cluster.fork()
-      sendMsgToWorker(worker)
-    }
+      const sendMsgToWorker = worker => {
+        if (!worksLength) return
 
-    for (const _ of numCPUs) {
-      createWorker()
-    }
+        worksLength--
 
-    Cluster.on('exit', (_, code) => {
-      if (code === 1) {
+        worker.send(data.workingList.pop())
+      }
+
+      const createWorker = () => {
+        if (!data.workingList.length) return
+
+        worker = Cluster.fork()
+        sendMsgToWorker(worker)
+      }
+
+      for (let i = 0; i < forksNum; i++) {
         createWorker()
       }
-    })
 
-    Cluster.on('message', (worker, msg) => {
-      const { status } = msg
-      if (status === 'error') {
-        console.log(msg.error)
-        return
-      }
-
-      data = compareHandler(msg.result, data)
-
-      if (!data.workingList) {
-        for (var id in Cluster.workers) {
-          Cluster.workers[id].kill()
+      Cluster.on('message', (worker, msg) => {
+        const { status } = msg
+        console.log(msg)
+        if (status === 'error') {
+          console.log(msg.error)
+          rej(msg.error)
         }
 
-        return data
-      }
+        const { second, isSame } = msg.result
 
-      sendMsgToWorker(worker)
+        if (isSame) {
+          if (data.deleteList.find(el => el === second)) return
+          data.deleteList.push(second)
+        }
+
+        console.log(data)
+
+        if (!data.workingList.length) {
+          for (var id in Cluster.workers) {
+            Cluster.workers[id].kill()
+          }
+
+          res(data)
+        }
+
+        sendMsgToWorker(worker)
+      })
     })
-  }
 
   const { imagesPath } = require('./test/setup')
   compareAndDelete(imagesPath).then(res => console.log(res))
@@ -65,8 +78,9 @@ if (Cluster.isMaster) {
 } else {
   const compareImages = require('./compare/compareImages/compareImages')
 
+  console.log(`[${process.pid}] Worker started`)
+
   process.on('message', async work => {
-    console.log('🚀 ~ file: index.js ~ line 69 ~ work', work)
     try {
       const result = await compareImages(work)
 

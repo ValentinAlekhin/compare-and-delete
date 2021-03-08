@@ -1,5 +1,5 @@
 const handler = (result, data) => {
-  const { first, second, isSameDimensions } = result
+  const { first, second, isSame } = result
   const { workingList: oldWorkingList, deleteList: oldDeleteList } = data
 
   const response = {
@@ -9,7 +9,7 @@ const handler = (result, data) => {
     deleteList: [...oldDeleteList],
   }
 
-  if (isSameDimensions) {
+  if (isSame) {
     response.workingList = response.workingList.filter(
       work => second !== work.second
     )
