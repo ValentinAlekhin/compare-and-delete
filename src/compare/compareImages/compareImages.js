@@ -1,18 +1,24 @@
 const { compare } = require('resemblejs')
 
 const defaultOptions = {
-  returnEarlyThreshold: 5,
+  returnEarlyThreshold: 1,
 }
 
-module.exports = ({ first, second, options = defaultOptions }) =>
+const compareImages = (work, options = defaultOptions) =>
   new Promise((response, reject) => {
     options = { ...defaultOptions, ...options }
+    const { first, second } = work
 
-    compare(first, second, options, (err, data) => {
+    compare(first, second, options, (err, { rawMisMatchPercentage }) => {
       if (err) {
         reject(err)
       } else {
-        response({ first, second, ...data })
+        response({
+          ...work,
+          isSame: rawMisMatchPercentage > 0.1 ? false : true,
+        })
       }
     })
   })
+
+module.exports = compareImages

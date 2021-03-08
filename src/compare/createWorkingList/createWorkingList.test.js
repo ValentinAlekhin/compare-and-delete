@@ -15,9 +15,14 @@ const expectedResult = [
 ]
 
 describe('Test createWorkingList:', () => {
-  it('should return right result', () => {
+  it('many items', () => {
     const result = createWorkingList(images)
 
     expect(result).toEqual(expectedResult)
+  })
+  it('two items', () => {
+    const result = createWorkingList(['1.jpg', '2.jpg'])
+
+    expect(result).toEqual([{ first: '1.jpg', second: '2.jpg' }])
   })
 })

@@ -1,4 +1,4 @@
-module.exports = images => {
+const createWorkingList = images => {
   const workingList = []
 
   images.forEach((first, i) =>
@@ -10,3 +10,5 @@ module.exports = images => {
 
   return workingList
 }
+
+module.exports = createWorkingList
